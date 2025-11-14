@@ -258,6 +258,43 @@
             color: #1a252f;
             text-decoration: underline;
         }
+        
+        .version-plots-section {
+            margin-top: 40px;
+            padding: 20px;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        
+        .version-plots-title {
+            text-align: center;
+            font-weight: 700;
+            font-size: 24px;
+            margin-bottom: 10px;
+            color: #2c3e50;
+        }
+        
+        .version-plots-subtitle {
+            text-align: center;
+            font-size: 16px;
+            color: #6c757d;
+            margin-bottom: 30px;
+        }
+        
+        .version-charts-container {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+        }
+        
+        .version-chart-container {
+            border: 1px solid #dee2e6;
+            border-radius: 6px;
+            padding: 15px;
+            background: white;
+            position: relative;
+        }
     </style>
 </head>
 <body>
@@ -349,6 +386,78 @@
         
         <div class="loading" id="loading">Loading Julia ecosystem benchmark data...</div>
     </div>
+    
+    <!-- Version-based Box Plots Section -->
+    <div class="container">
+        <div class="version-plots-section">
+            <div class="version-plots-title">Performance by Julia Version</div>
+            <div class="version-plots-subtitle">Box plots showing median, quartiles, and extremes for each complete Julia version</div>
+            
+            <div class="version-charts-container">
+                <!-- Time Metrics Column -->
+                <div class="metrics-section">
+                    <div class="metrics-title">Time Metrics by Version</div>
+                    <div class="metric-charts">
+                        <div class="version-chart-container">
+                            <div class="zoom-controls">
+                                <div class="zoom-btn" onclick="zoomChart('versionPrecompileTimeChart', 1.5)" title="Zoom In">+</div>
+                                <div class="zoom-btn" onclick="zoomChart('versionPrecompileTimeChart', 0.67)" title="Zoom Out">−</div>
+                                <div class="zoom-btn" onclick="resetZoom('versionPrecompileTimeChart')" title="Reset Zoom">⌂</div>
+                            </div>
+                            <div class="chart-title">Precompile Time by Version</div>
+                            <svg id="versionPrecompileTimeChart" width="550" height="300"></svg>
+                        </div>
+                        
+                        <div class="version-chart-container">
+                            <div class="zoom-controls">
+                                <div class="zoom-btn" onclick="zoomChart('versionLoadingTimeChart', 1.5)" title="Zoom In">+</div>
+                                <div class="zoom-btn" onclick="zoomChart('versionLoadingTimeChart', 0.67)" title="Zoom Out">−</div>
+                                <div class="zoom-btn" onclick="resetZoom('versionLoadingTimeChart')" title="Reset Zoom">⌂</div>
+                            </div>
+                            <div class="chart-title">Loading Time by Version</div>
+                            <svg id="versionLoadingTimeChart" width="550" height="300"></svg>
+                        </div>
+                        
+                        <div class="version-chart-container">
+                            <div class="zoom-controls">
+                                <div class="zoom-btn" onclick="zoomChart('versionTaskTimeChart', 1.5)" title="Zoom In">+</div>
+                                <div class="zoom-btn" onclick="zoomChart('versionTaskTimeChart', 0.67)" title="Zoom Out">−</div>
+                                <div class="zoom-btn" onclick="resetZoom('versionTaskTimeChart')" title="Reset Zoom">⌂</div>
+                            </div>
+                            <div class="chart-title">Task Time by Version</div>
+                            <svg id="versionTaskTimeChart" width="550" height="300"></svg>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Memory Metrics Column -->
+                <div class="metrics-section">
+                    <div class="metrics-title">Memory Metrics by Version</div>
+                    <div class="metric-charts">
+                        <div class="version-chart-container">
+                            <div class="zoom-controls">
+                                <div class="zoom-btn" onclick="zoomChart('versionPrecompileMemoryChart', 1.5)" title="Zoom In">+</div>
+                                <div class="zoom-btn" onclick="zoomChart('versionPrecompileMemoryChart', 0.67)" title="Zoom Out">−</div>
+                                <div class="zoom-btn" onclick="resetZoom('versionPrecompileMemoryChart')" title="Reset Zoom">⌂</div>
+                            </div>
+                            <div class="chart-title">Precompile Memory by Version</div>
+                            <svg id="versionPrecompileMemoryChart" width="550" height="300"></svg>
+                        </div>
+                        
+                        <div class="version-chart-container">
+                            <div class="zoom-controls">
+                                <div class="zoom-btn" onclick="zoomChart('versionTaskMemoryChart', 1.5)" title="Zoom In">+</div>
+                                <div class="zoom-btn" onclick="zoomChart('versionTaskMemoryChart', 0.67)" title="Zoom Out">−</div>
+                                <div class="zoom-btn" onclick="resetZoom('versionTaskMemoryChart')" title="Reset Zoom">⌂</div>
+                            </div>
+                            <div class="chart-title">Task Memory by Version</div>
+                            <svg id="versionTaskMemoryChart" width="550" height="300"></svg>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
 
     <footer class="footer">
         <h3>About Julia Ecosystem Benchmarks Explorer</h3>
@@ -405,14 +514,88 @@
             taskMemoryChart: { accessor: 'task_resident', label: 'Memory (KB)', title: 'Task Memory' }
         };
         
+        // Define version-based box plot metrics
+        const versionMetrics = {
+            versionPrecompileTimeChart: { accessor: 'precompile_time', label: 'Time (seconds)', title: 'Precompile Time by Version' },
+            versionLoadingTimeChart: { accessor: 'loading_time', label: 'Time (seconds)', title: 'Loading Time by Version' },
+            versionTaskTimeChart: { accessor: 'task_time', label: 'Time (seconds)', title: 'Task Time by Version' },
+            versionPrecompileMemoryChart: { accessor: 'precompile_resident', label: 'Memory (KB)', title: 'Precompile Memory by Version' },
+            versionTaskMemoryChart: { accessor: 'task_resident', label: 'Memory (KB)', title: 'Task Memory by Version' }
+        };
+        
         // Zoom state tracking for all charts
         let chartZoomStates = {};
         Object.keys(metrics).forEach(chartId => {
             chartZoomStates[chartId] = { transform: d3.zoomIdentity };
         });
+        Object.keys(versionMetrics).forEach(chartId => {
+            chartZoomStates[chartId] = { transform: d3.zoomIdentity };
+        });
         
         // Special non-numeric version names (add here as needed)
         const specialVersions = ['nightly', 'dev', 'rc', 'alpha', 'beta'];
+        
+        // Box plot calculation functions
+        function calculateBoxPlotStats(values) {
+            if (!values || values.length === 0) return null;
+            
+            const sortedValues = values.filter(v => isFinite(v)).sort((a, b) => a - b);
+            if (sortedValues.length === 0) return null;
+            
+            const q1Index = Math.floor(sortedValues.length * 0.25);
+            const medianIndex = Math.floor(sortedValues.length * 0.5);
+            const q3Index = Math.floor(sortedValues.length * 0.75);
+            
+            const q1 = sortedValues[q1Index];
+            const median = sortedValues[medianIndex];
+            const q3 = sortedValues[q3Index];
+            const iqr = q3 - q1;
+            
+            const min = sortedValues[0];
+            const max = sortedValues[sortedValues.length - 1];
+            
+            // Calculate outlier bounds
+            const lowerBound = q1 - 1.5 * iqr;
+            const upperBound = q3 + 1.5 * iqr;
+            
+            // Find whisker ends (min/max within bounds)
+            const lowerWhisker = sortedValues.find(v => v >= lowerBound) || min;
+            const upperWhisker = sortedValues.reverse().find(v => v <= upperBound) || max;
+            sortedValues.reverse(); // restore original order
+            
+            // Find outliers
+            const outliers = sortedValues.filter(v => v < lowerBound || v > upperBound);
+            
+            return {
+                min,
+                q1,
+                median,
+                q3,
+                max,
+                lowerWhisker,
+                upperWhisker,
+                outliers,
+                count: sortedValues.length
+            };
+        }
+        
+        function isNumericVersion(version) {
+            // Check if version is purely numeric (e.g., "1.8.0", "1.9.2")
+            return /^\d+\.\d+\.\d+$/.test(version) && !specialVersions.some(sv => version.toLowerCase().includes(sv));
+        }
+        
+        function sortVersions(versions) {
+            return versions.sort((a, b) => {
+                const aVersion = a.split('.').map(Number);
+                const bVersion = b.split('.').map(Number);
+                for (let i = 0; i < Math.max(aVersion.length, bVersion.length); i++) {
+                    const aPart = aVersion[i] || 0;
+                    const bPart = bVersion[i] || 0;
+                    if (aPart !== bPart) return aPart - bPart;
+                }
+                return 0;
+            });
+        }
         
         // Spinner utility functions
         function showSpinner(message = 'Loading...') {
@@ -742,6 +925,7 @@
                 if (!urlRestored) {
                     showSpinner('Creating charts...');
                     createAllCharts();
+                    createAllVersionBoxPlots();
                 }
                 
                 createLegend();
@@ -1003,6 +1187,7 @@
                 // Use another timeout to allow spinner message to update
                 setTimeout(() => {
                     createAllCharts();
+                    createAllVersionBoxPlots();
                     hideSpinner();
                 }, 10);
             }, 10);
@@ -1187,6 +1372,233 @@
             console.log('All charts created successfully');
         }
         
+        function createVersionBoxPlot(svgId, yAccessor, title, yLabel) {
+            console.log(`Creating box plot for ${svgId}...`);
+            
+            const svg = d3.select(`#${svgId}`);
+            svg.selectAll('*').remove();
+            
+            if (!filteredData || filteredData.length === 0) {
+                console.log(`No data available for ${svgId}, skipping box plot creation`);
+                return;
+            }
+            
+            // Filter to numeric versions only and group by version
+            const numericData = filteredData.filter(d => isNumericVersion(d.julia_version));
+            
+            if (numericData.length === 0) {
+                console.log(`No numeric version data available for ${svgId}`);
+                return;
+            }
+            
+            // Group data by version
+            const versionGroups = d3.group(numericData, d => d.julia_version);
+            const versions = sortVersions([...versionGroups.keys()]);
+            
+            console.log(`Creating box plot for ${versions.length} versions:`, versions);
+            
+            // Calculate box plot stats for each version
+            const boxPlotData = versions.map(version => {
+                const versionData = versionGroups.get(version);
+                const values = versionData.map(yAccessor).filter(v => isFinite(v));
+                const stats = calculateBoxPlotStats(values);
+                return { version, stats };
+            }).filter(d => d.stats !== null);
+            
+            if (boxPlotData.length === 0) {
+                console.log(`No valid box plot data for ${svgId}`);
+                return;
+            }
+            
+            const g = svg.append('g')
+                .attr('transform', `translate(${margin.left},${margin.top})`);
+            
+            // Apply zoom transform to scales
+            const transform = chartZoomStates[svgId].transform;
+            
+            // Scales
+            const xScale = d3.scaleBand()
+                .domain(versions)
+                .range([0, width])
+                .padding(0.1);
+            
+            const allValues = boxPlotData.flatMap(d => [
+                d.stats.lowerWhisker,
+                d.stats.q1,
+                d.stats.median,
+                d.stats.q3,
+                d.stats.upperWhisker,
+                ...d.stats.outliers
+            ]).filter(v => isFinite(v));
+            
+            const yMin = d3.min(allValues);
+            const yMax = d3.max(allValues);
+            const yMean = d3.mean(allValues);
+            
+            // Set y upper limit to min(slightly above max, 4 * mean)
+            const yUpperLimit = Math.min(yMax * 1.05, yMean * 4);
+            const yExtent = [Math.max(0, yMin * 0.95), yUpperLimit];
+            
+            const yScale = d3.scaleLinear()
+                .domain(yExtent)
+                .range([height, 0]);
+            
+            // Create zoomed scales
+            const zoomedXScale = transform.rescaleX(xScale);
+            const zoomedYScale = transform.rescaleY(yScale);
+            
+            // Axes
+            g.append('g')
+                .attr('transform', `translate(0,${height})`)
+                .call(d3.axisBottom(zoomedXScale))
+                .attr('class', 'axis')
+                .selectAll('text')
+                .style('text-anchor', 'end')
+                .attr('dx', '-.8em')
+                .attr('dy', '.15em')
+                .attr('transform', 'rotate(-45)');
+            
+            g.append('g')
+                .call(d3.axisLeft(zoomedYScale))
+                .attr('class', 'axis');
+            
+            // Axis labels
+            g.append('text')
+                .attr('transform', 'rotate(-90)')
+                .attr('y', 0 - margin.left)
+                .attr('x', 0 - (height / 2))
+                .attr('dy', '1em')
+                .style('text-anchor', 'middle')
+                .attr('class', 'axis-label')
+                .text(yLabel);
+            
+            g.append('text')
+                .attr('transform', `translate(${width / 2}, ${height + margin.bottom - 5})`)
+                .style('text-anchor', 'middle')
+                .attr('class', 'axis-label')
+                .text('Julia Version');
+            
+            // Tooltip
+            const tooltip = d3.select('#tooltip');
+            
+            // Draw box plots
+            const boxWidth = zoomedXScale.bandwidth() * 0.6;
+            
+            boxPlotData.forEach(d => {
+                const x = zoomedXScale(d.version) + zoomedXScale.bandwidth() / 2;
+                const stats = d.stats;
+                
+                // Whiskers
+                g.append('line')
+                    .attr('x1', x)
+                    .attr('x2', x)
+                    .attr('y1', zoomedYScale(stats.lowerWhisker))
+                    .attr('y2', zoomedYScale(stats.upperWhisker))
+                    .attr('stroke', '#000')
+                    .attr('stroke-width', 1);
+                
+                // Box
+                g.append('rect')
+                    .attr('x', x - boxWidth / 2)
+                    .attr('y', zoomedYScale(stats.q3))
+                    .attr('width', boxWidth)
+                    .attr('height', zoomedYScale(stats.q1) - zoomedYScale(stats.q3))
+                    .attr('fill', '#e0e0e0')
+                    .attr('stroke', '#000')
+                    .attr('stroke-width', 1);
+                
+                // Median line
+                g.append('line')
+                    .attr('x1', x - boxWidth / 2)
+                    .attr('x2', x + boxWidth / 2)
+                    .attr('y1', zoomedYScale(stats.median))
+                    .attr('y2', zoomedYScale(stats.median))
+                    .attr('stroke', '#000')
+                    .attr('stroke-width', 2);
+                
+                // Whisker caps
+                g.append('line')
+                    .attr('x1', x - boxWidth / 4)
+                    .attr('x2', x + boxWidth / 4)
+                    .attr('y1', zoomedYScale(stats.lowerWhisker))
+                    .attr('y2', zoomedYScale(stats.lowerWhisker))
+                    .attr('stroke', '#000')
+                    .attr('stroke-width', 1);
+                
+                g.append('line')
+                    .attr('x1', x - boxWidth / 4)
+                    .attr('x2', x + boxWidth / 4)
+                    .attr('y1', zoomedYScale(stats.upperWhisker))
+                    .attr('y2', zoomedYScale(stats.upperWhisker))
+                    .attr('stroke', '#000')
+                    .attr('stroke-width', 1);
+                
+                // Outliers
+                stats.outliers.forEach(outlier => {
+                    g.append('circle')
+                        .attr('cx', x)
+                        .attr('cy', zoomedYScale(outlier))
+                        .attr('r', 2)
+                        .attr('fill', '#ff0000')
+                        .attr('stroke', '#000')
+                        .attr('stroke-width', 0.5);
+                });
+                
+                // Invisible overlay for tooltip
+                g.append('rect')
+                    .attr('x', x - zoomedXScale.bandwidth() / 2)
+                    .attr('y', 0)
+                    .attr('width', zoomedXScale.bandwidth())
+                    .attr('height', height)
+                    .attr('fill', 'transparent')
+                    .style('cursor', 'pointer')
+                    .on('mouseover', function(event) {
+                        tooltip.style('opacity', 1)
+                            .html(`
+                                <strong>Julia ${d.version}</strong><br/>
+                                Count: ${stats.count}<br/>
+                                Min: ${stats.min.toFixed(2)}<br/>
+                                Q1: ${stats.q1.toFixed(2)}<br/>
+                                Median: ${stats.median.toFixed(2)}<br/>
+                                Q3: ${stats.q3.toFixed(2)}<br/>
+                                Max: ${stats.max.toFixed(2)}<br/>
+                                Outliers: ${stats.outliers.length}
+                            `)
+                            .style('left', (event.pageX + 10) + 'px')
+                            .style('top', (event.pageY - 10) + 'px');
+                    })
+                    .on('mouseout', function() {
+                        tooltip.style('opacity', 0);
+                    });
+            });
+            
+            // Add zoom behavior
+            const zoom = d3.zoom()
+                .scaleExtent([0.1, 10])
+                .on('zoom', function(event) {
+                    chartZoomStates[svgId].transform = event.transform;
+                    updateVersionBoxPlotWithZoom(svgId);
+                });
+            
+            svg.call(zoom);
+            
+            console.log(`Box plot ${svgId} creation completed`);
+        }
+        
+        function createAllVersionBoxPlots() {
+            console.log('Creating all version box plots...');
+            
+            Object.keys(versionMetrics).forEach(chartId => {
+                const metric = versionMetrics[chartId];
+                const yAccessor = d => d[metric.accessor];
+                
+                console.log(`Creating ${chartId} with accessor ${metric.accessor}`);
+                createVersionBoxPlot(chartId, yAccessor, metric.title, metric.label);
+            });
+            
+            console.log('All version box plots created successfully');
+        }
+        
         function createLegend() {
             console.log('Creating legend...');
             const legend = d3.select('#legend');
@@ -1231,6 +1643,16 @@
             }
         }
         
+        function updateVersionBoxPlotWithZoom(svgId) {
+            console.log(`Updating box plot zoom for ${svgId}`);
+            
+            if (versionMetrics[svgId]) {
+                const metric = versionMetrics[svgId];
+                const yAccessor = d => d[metric.accessor];
+                createVersionBoxPlot(svgId, yAccessor, metric.title, metric.label);
+            }
+        }
+        
         function zoomChart(svgId, scaleFactor) {
             console.log(`Zooming ${svgId} by factor ${scaleFactor}`);
             const svg = d3.select(`#${svgId}`);
@@ -1245,7 +1667,11 @@
                 .scaleExtent([0.1, 10])
                 .on('zoom', function(event) {
                     chartZoomStates[svgId].transform = event.transform;
-                    updateChartWithZoom(svgId);
+                    if (versionMetrics[svgId]) {
+                        updateVersionBoxPlotWithZoom(svgId);
+                    } else {
+                        updateChartWithZoom(svgId);
+                    }
                 });
             
             svg.call(zoom.transform, newTransform);
@@ -1260,7 +1686,11 @@
                 .scaleExtent([0.1, 10])
                 .on('zoom', function(event) {
                     chartZoomStates[svgId].transform = event.transform;
-                    updateChartWithZoom(svgId);
+                    if (versionMetrics[svgId]) {
+                        updateVersionBoxPlotWithZoom(svgId);
+                    } else {
+                        updateChartWithZoom(svgId);
+                    }
                 });
             
             svg.call(zoom.transform, d3.zoomIdentity);
