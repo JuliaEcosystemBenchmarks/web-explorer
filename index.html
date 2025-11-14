@@ -307,6 +307,144 @@
         // Special non-numeric version names (add here as needed)
         const specialVersions = ['nightly', 'dev', 'rc', 'alpha', 'beta'];
         
+        // URL anchor management
+        function updateURLAnchor() {
+            const selectedPackages = Array.from(document.getElementById('packageSelect').selectedOptions)
+                .map(option => option.value);
+            const selectedTasks = Array.from(document.getElementById('taskSelect').selectedOptions)
+                .map(option => option.value);
+            
+            console.log('Updating URL anchor with selections:', { packages: selectedPackages, tasks: selectedTasks });
+            
+            // Create URL anchor with selections
+            const anchorData = {
+                packages: selectedPackages.filter(p => p !== 'all'), // Exclude 'all' from URL
+                tasks: selectedTasks.filter(t => t !== 'all') // Exclude 'all' from URL
+            };
+            
+            // Only include non-empty arrays
+            const urlParams = new URLSearchParams();
+            if (anchorData.packages.length > 0) {
+                urlParams.set('packages', anchorData.packages.join(','));
+            }
+            if (anchorData.tasks.length > 0) {
+                urlParams.set('tasks', anchorData.tasks.join(','));
+            }
+            
+            // Update URL without triggering page reload
+            const newAnchor = urlParams.toString();
+            const newURL = window.location.pathname + (newAnchor ? '#' + newAnchor : '');
+            
+            console.log('Setting URL to:', newURL);
+            window.history.replaceState(null, '', newURL);
+        }
+        
+        function parseURLAnchor() {
+            console.log('Parsing URL anchor...');
+            const hash = window.location.hash.substring(1); // Remove the '#'
+            
+            if (!hash) {
+                console.log('No URL anchor found');
+                return { packages: [], tasks: [] };
+            }
+            
+            const urlParams = new URLSearchParams(hash);
+            
+            const packages = urlParams.get('packages');
+            const tasks = urlParams.get('tasks');
+            
+            const result = {
+                packages: packages ? packages.split(',').filter(p => p.trim()) : [],
+                tasks: tasks ? tasks.split(',').filter(t => t.trim()) : []
+            };
+            
+            console.log('Parsed URL anchor:', result);
+            return result;
+        }
+        
+        function restoreSelectionsFromURL() {
+            console.log('Restoring selections from URL...');
+            const urlSelections = parseURLAnchor();
+            
+            if (urlSelections.packages.length === 0 && urlSelections.tasks.length === 0) {
+                console.log('No URL selections to restore');
+                return false;
+            }
+            
+            // Validate that data is loaded
+            if (!data || data.length === 0) {
+                console.warn('Cannot restore URL selections: data not loaded');
+                return false;
+            }
+            
+            // Get available packages and tasks
+            const availablePackages = [...new Set(data.map(d => d.package_name))];
+            const availableTasks = [...new Set(data.map(d => d.task_name))];
+            
+            console.log('Available packages:', availablePackages.length);
+            console.log('Available tasks:', availableTasks.length);
+            
+            // Filter URL selections to only include items that exist in the data
+            const validPackages = urlSelections.packages.filter(pkg => availablePackages.includes(pkg));
+            const validTasks = urlSelections.tasks.filter(task => availableTasks.includes(task));
+            
+            console.log('Valid packages from URL:', validPackages);
+            console.log('Valid tasks from URL:', validTasks);
+            
+            // If no valid selections, clear the URL
+            if (validPackages.length === 0 && validTasks.length === 0) {
+                console.log('No valid selections found in URL, clearing anchor');
+                window.history.replaceState(null, '', window.location.pathname);
+                return false;
+            }
+            
+            // Restore package selections
+            const packageSelect = document.getElementById('packageSelect');
+            if (!packageSelect) {
+                console.error('Package selector not found');
+                return false;
+            }
+            
+            Array.from(packageSelect.options).forEach(option => {
+                option.selected = validPackages.includes(option.value);
+            });
+            
+            // Update task selector based on selected packages
+            if (validPackages.length > 0) {
+                populateTaskSelector(validPackages);
+            } else {
+                populateTaskSelector([]);
+            }
+            
+            // Restore task selections (after task selector is updated)
+            setTimeout(() => {
+                const taskSelect = document.getElementById('taskSelect');
+                if (!taskSelect) {
+                    console.error('Task selector not found');
+                    return;
+                }
+                
+                Array.from(taskSelect.options).forEach(option => {
+                    option.selected = validTasks.includes(option.value);
+                });
+                
+                console.log('Selections restored from URL successfully');
+                
+                // Filter data and update charts
+                filterData();
+            }, 100);
+            
+            return true;
+        }
+        
+        // Handle browser back/forward buttons
+        function handlePopState() {
+            console.log('Browser navigation detected, restoring selections from URL');
+            if (data && data.length > 0) {
+                restoreSelectionsFromURL();
+            }
+        }
+        
         // Extract minor version for color grouping (e.g., "1.8.0" -> "1.8", "nightly" -> "nightly")
         function getMinorVersion(version) {
             // Check if it's a special version
@@ -466,7 +604,14 @@
                 filteredData = [...data];
                 console.log('Initial filtered data length:', filteredData.length);
                 
-                createAllCharts();
+                // Try to restore selections from URL anchor
+                restoreSelectionsFromURL();
+                
+                // If no URL selections were restored, create charts with default data
+                if (!window.location.hash) {
+                    createAllCharts();
+                }
+                
                 createLegend();
                 document.getElementById('loading').style.display = 'none';
                 
@@ -654,6 +799,9 @@
             
             // Filter and update charts
             filterData();
+            
+            // Update URL anchor
+            updateURLAnchor();
         }
         
         function onTaskSelectionChange() {
@@ -683,6 +831,9 @@
             
             // Filter and update charts
             filterData();
+            
+            // Update URL anchor
+            updateURLAnchor();
         }
         
         function filterData() {
@@ -972,6 +1123,9 @@
         // Event listeners
         document.getElementById('packageSelect').addEventListener('change', onPackageSelectionChange);
         document.getElementById('taskSelect').addEventListener('change', onTaskSelectionChange);
+        
+        // Handle browser back/forward navigation
+        window.addEventListener('popstate', handlePopState);
         
         // Initialize
         loadData();
