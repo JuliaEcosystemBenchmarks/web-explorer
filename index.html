@@ -59,8 +59,30 @@
         .charts-container {
             display: grid;
             grid-template-columns: 1fr 1fr;
-            gap: 20px;
+            gap: 15px;
             margin-bottom: 20px;
+        }
+        
+        .metrics-section {
+            border: 2px solid #dee2e6;
+            border-radius: 8px;
+            padding: 15px;
+            background: #f8f9fa;
+        }
+        
+        .metrics-title {
+            text-align: center;
+            font-weight: 700;
+            font-size: 18px;
+            margin-bottom: 20px;
+            color: #2c3e50;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        
+        .metric-charts {
+            display: grid;
+            gap: 15px;
         }
         
         .chart-container {
@@ -182,43 +204,69 @@
                 </select>
             </div>
             
-            <div class="control-group">
-                <label for="timeMetric">Time Metric</label>
-                <select id="timeMetric">
-                    <option value="precompile_time">Precompile Time</option>
-                    <option value="loading_time">Loading Time</option>
-                    <option value="task_time">Task Time</option>
-                </select>
-            </div>
-            
-            <div class="control-group">
-                <label for="memoryMetric">Memory Metric</label>
-                <select id="memoryMetric">
-                    <option value="precompile_resident">Precompile Memory</option>
-                    <option value="task_resident">Task Memory</option>
-                </select>
-            </div>
         </div>
         
         <div class="charts-container">
-            <div class="chart-container">
-                <div class="zoom-controls">
-                    <div class="zoom-btn" onclick="zoomChart('timeChart', 1.5)" title="Zoom In">+</div>
-                    <div class="zoom-btn" onclick="zoomChart('timeChart', 0.67)" title="Zoom Out">−</div>
-                    <div class="zoom-btn" onclick="resetZoom('timeChart')" title="Reset Zoom">⌂</div>
+            <!-- Time Metrics Column -->
+            <div class="metrics-section">
+                <div class="metrics-title">Time Metrics</div>
+                <div class="metric-charts">
+                    <div class="chart-container">
+                        <div class="zoom-controls">
+                            <div class="zoom-btn" onclick="zoomChart('precompileTimeChart', 1.5)" title="Zoom In">+</div>
+                            <div class="zoom-btn" onclick="zoomChart('precompileTimeChart', 0.67)" title="Zoom Out">−</div>
+                            <div class="zoom-btn" onclick="resetZoom('precompileTimeChart')" title="Reset Zoom">⌂</div>
+                        </div>
+                        <div class="chart-title">Precompile Time (seconds)</div>
+                        <svg id="precompileTimeChart" width="550" height="300"></svg>
+                    </div>
+                    
+                    <div class="chart-container">
+                        <div class="zoom-controls">
+                            <div class="zoom-btn" onclick="zoomChart('loadingTimeChart', 1.5)" title="Zoom In">+</div>
+                            <div class="zoom-btn" onclick="zoomChart('loadingTimeChart', 0.67)" title="Zoom Out">−</div>
+                            <div class="zoom-btn" onclick="resetZoom('loadingTimeChart')" title="Reset Zoom">⌂</div>
+                        </div>
+                        <div class="chart-title">Loading Time (seconds)</div>
+                        <svg id="loadingTimeChart" width="550" height="300"></svg>
+                    </div>
+                    
+                    <div class="chart-container">
+                        <div class="zoom-controls">
+                            <div class="zoom-btn" onclick="zoomChart('taskTimeChart', 1.5)" title="Zoom In">+</div>
+                            <div class="zoom-btn" onclick="zoomChart('taskTimeChart', 0.67)" title="Zoom Out">−</div>
+                            <div class="zoom-btn" onclick="resetZoom('taskTimeChart')" title="Reset Zoom">⌂</div>
+                        </div>
+                        <div class="chart-title">Task Time (seconds)</div>
+                        <svg id="taskTimeChart" width="550" height="300"></svg>
+                    </div>
                 </div>
-                <div class="chart-title" id="timeChartTitle">Time Performance Over Date</div>
-                <svg id="timeChart" width="600" height="400"></svg>
             </div>
             
-            <div class="chart-container">
-                <div class="zoom-controls">
-                    <div class="zoom-btn" onclick="zoomChart('memoryChart', 1.5)" title="Zoom In">+</div>
-                    <div class="zoom-btn" onclick="zoomChart('memoryChart', 0.67)" title="Zoom Out">−</div>
-                    <div class="zoom-btn" onclick="resetZoom('memoryChart')" title="Reset Zoom">⌂</div>
+            <!-- Memory Metrics Column -->
+            <div class="metrics-section">
+                <div class="metrics-title">Memory Metrics</div>
+                <div class="metric-charts">
+                    <div class="chart-container">
+                        <div class="zoom-controls">
+                            <div class="zoom-btn" onclick="zoomChart('precompileMemoryChart', 1.5)" title="Zoom In">+</div>
+                            <div class="zoom-btn" onclick="zoomChart('precompileMemoryChart', 0.67)" title="Zoom Out">−</div>
+                            <div class="zoom-btn" onclick="resetZoom('precompileMemoryChart')" title="Reset Zoom">⌂</div>
+                        </div>
+                        <div class="chart-title">Precompile Memory (KB)</div>
+                        <svg id="precompileMemoryChart" width="550" height="300"></svg>
+                    </div>
+                    
+                    <div class="chart-container">
+                        <div class="zoom-controls">
+                            <div class="zoom-btn" onclick="zoomChart('taskMemoryChart', 1.5)" title="Zoom In">+</div>
+                            <div class="zoom-btn" onclick="zoomChart('taskMemoryChart', 0.67)" title="Zoom Out">−</div>
+                            <div class="zoom-btn" onclick="resetZoom('taskMemoryChart')" title="Reset Zoom">⌂</div>
+                        </div>
+                        <div class="chart-title">Task Memory (KB)</div>
+                        <svg id="taskMemoryChart" width="550" height="300"></svg>
+                    </div>
                 </div>
-                <div class="chart-title" id="memoryChartTitle">Memory Usage Over Date</div>
-                <svg id="memoryChart" width="600" height="400"></svg>
             </div>
         </div>
         
@@ -237,15 +285,24 @@
         let colorScale;
         
         // Chart dimensions and margins
-        const margin = { top: 20, right: 30, bottom: 60, left: 80 };
-        const width = 600 - margin.left - margin.right;
-        const height = 400 - margin.top - margin.bottom;
+        const margin = { top: 20, right: 30, bottom: 50, left: 70 };
+        const width = 550 - margin.left - margin.right;
+        const height = 300 - margin.top - margin.bottom;
         
-        // Zoom state tracking
-        let chartZoomStates = {
-            timeChart: { transform: d3.zoomIdentity },
-            memoryChart: { transform: d3.zoomIdentity }
+        // Define all metrics and their configurations
+        const metrics = {
+            precompileTimeChart: { accessor: 'precompile_time', label: 'Time (seconds)', title: 'Precompile Time' },
+            loadingTimeChart: { accessor: 'loading_time', label: 'Time (seconds)', title: 'Loading Time' },
+            taskTimeChart: { accessor: 'task_time', label: 'Time (seconds)', title: 'Task Time' },
+            precompileMemoryChart: { accessor: 'precompile_resident', label: 'Memory (KB)', title: 'Precompile Memory' },
+            taskMemoryChart: { accessor: 'task_resident', label: 'Memory (KB)', title: 'Task Memory' }
         };
+        
+        // Zoom state tracking for all charts
+        let chartZoomStates = {};
+        Object.keys(metrics).forEach(chartId => {
+            chartZoomStates[chartId] = { transform: d3.zoomIdentity };
+        });
         
         // Special non-numeric version names (add here as needed)
         const specialVersions = ['nightly', 'dev', 'rc', 'alpha', 'beta'];
@@ -409,7 +466,7 @@
                 filteredData = [...data];
                 console.log('Initial filtered data length:', filteredData.length);
                 
-                updateCharts();
+                createAllCharts();
                 createLegend();
                 document.getElementById('loading').style.display = 'none';
                 
@@ -530,7 +587,7 @@
             });
             
             console.log('Filtered data length:', filteredData.length);
-            updateCharts();
+            createAllCharts();
         }
         
         function createChart(svgId, yAccessor, title, yLabel) {
@@ -698,35 +755,18 @@
             console.log(`Chart ${svgId} creation completed`);
         }
         
-        function updateCharts() {
-            console.log('Updating charts...');
-            const timeMetric = document.getElementById('timeMetric').value;
-            const memoryMetric = document.getElementById('memoryMetric').value;
+        function createAllCharts() {
+            console.log('Creating all charts...');
             
-            console.log('Selected metrics - Time:', timeMetric, 'Memory:', memoryMetric);
+            Object.keys(metrics).forEach(chartId => {
+                const metric = metrics[chartId];
+                const yAccessor = d => d[metric.accessor];
+                
+                console.log(`Creating ${chartId} with accessor ${metric.accessor}`);
+                createChart(chartId, yAccessor, metric.title, metric.label);
+            });
             
-            const timeAccessor = d => d[timeMetric];
-            const memoryAccessor = d => d[memoryMetric];
-            
-            // Test accessors with sample data
-            if (filteredData.length > 0) {
-                const sampleData = filteredData[0];
-                console.log('Sample data for accessor test:', sampleData);
-                console.log('Time accessor result:', timeAccessor(sampleData));
-                console.log('Memory accessor result:', memoryAccessor(sampleData));
-            }
-            
-            const timeTitle = `${timeMetric.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase())} Over Time`;
-            const memoryTitle = `${memoryMetric.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase())} Over Time`;
-            
-            document.getElementById('timeChartTitle').textContent = timeTitle;
-            document.getElementById('memoryChartTitle').textContent = memoryTitle;
-            
-            console.log('About to create charts...');
-            createChart('timeChart', timeAccessor, timeTitle, 
-                timeMetric.includes('time') ? 'Time (seconds)' : 'CPU Usage');
-            createChart('memoryChart', memoryAccessor, memoryTitle, 'Memory (KB)');
-            console.log('Charts update completed');
+            console.log('All charts created successfully');
         }
         
         function createLegend() {
@@ -765,19 +805,11 @@
         // Zoom functions
         function updateChartWithZoom(svgId) {
             console.log(`Updating zoom for ${svgId}`);
-            // Simply recreate the chart with the new zoom state
-            const timeMetric = document.getElementById('timeMetric').value;
-            const memoryMetric = document.getElementById('memoryMetric').value;
             
-            if (svgId === 'timeChart') {
-                const timeAccessor = d => d[timeMetric];
-                const timeTitle = `${timeMetric.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase())} Over Time`;
-                createChart('timeChart', timeAccessor, timeTitle, 
-                    timeMetric.includes('time') ? 'Time (seconds)' : 'CPU Usage');
-            } else if (svgId === 'memoryChart') {
-                const memoryAccessor = d => d[memoryMetric];
-                const memoryTitle = `${memoryMetric.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase())} Over Time`;
-                createChart('memoryChart', memoryAccessor, memoryTitle, 'Memory (KB)');
+            if (metrics[svgId]) {
+                const metric = metrics[svgId];
+                const yAccessor = d => d[metric.accessor];
+                createChart(svgId, yAccessor, metric.title, metric.label);
             }
         }
         
@@ -819,8 +851,6 @@
         // Event listeners
         document.getElementById('packageSelect').addEventListener('change', filterData);
         document.getElementById('taskSelect').addEventListener('change', filterData);
-        document.getElementById('timeMetric').addEventListener('change', updateCharts);
-        document.getElementById('memoryMetric').addEventListener('change', updateCharts);
         
         // Initialize
         loadData();
