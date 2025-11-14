@@ -68,6 +68,7 @@
             border-radius: 6px;
             padding: 15px;
             background: white;
+            position: relative;
         }
         
         .chart-title {
@@ -75,6 +76,39 @@
             font-weight: 600;
             margin-bottom: 15px;
             color: #495057;
+        }
+        
+        .zoom-controls {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            display: flex;
+            gap: 5px;
+            z-index: 10;
+        }
+        
+        .zoom-btn {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 4px;
+            width: 30px;
+            height: 30px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: bold;
+            color: #495057;
+            transition: background-color 0.2s;
+        }
+        
+        .zoom-btn:hover {
+            background: #e9ecef;
+        }
+        
+        .zoom-btn:active {
+            background: #dee2e6;
         }
         
         .legend {
@@ -168,11 +202,21 @@
         
         <div class="charts-container">
             <div class="chart-container">
+                <div class="zoom-controls">
+                    <div class="zoom-btn" onclick="zoomChart('timeChart', 1.5)" title="Zoom In">+</div>
+                    <div class="zoom-btn" onclick="zoomChart('timeChart', 0.67)" title="Zoom Out">−</div>
+                    <div class="zoom-btn" onclick="resetZoom('timeChart')" title="Reset Zoom">⌂</div>
+                </div>
                 <div class="chart-title" id="timeChartTitle">Time Performance Over Date</div>
                 <svg id="timeChart" width="600" height="400"></svg>
             </div>
             
             <div class="chart-container">
+                <div class="zoom-controls">
+                    <div class="zoom-btn" onclick="zoomChart('memoryChart', 1.5)" title="Zoom In">+</div>
+                    <div class="zoom-btn" onclick="zoomChart('memoryChart', 0.67)" title="Zoom Out">−</div>
+                    <div class="zoom-btn" onclick="resetZoom('memoryChart')" title="Reset Zoom">⌂</div>
+                </div>
                 <div class="chart-title" id="memoryChartTitle">Memory Usage Over Date</div>
                 <svg id="memoryChart" width="600" height="400"></svg>
             </div>
@@ -196,6 +240,12 @@
         const margin = { top: 20, right: 30, bottom: 60, left: 80 };
         const width = 600 - margin.left - margin.right;
         const height = 400 - margin.top - margin.bottom;
+        
+        // Zoom state tracking
+        let chartZoomStates = {
+            timeChart: { transform: d3.zoomIdentity },
+            memoryChart: { transform: d3.zoomIdentity }
+        };
         
         // Special non-numeric version names (add here as needed)
         const specialVersions = ['nightly', 'dev', 'rc', 'alpha', 'beta'];
@@ -424,6 +474,9 @@
                 return;
             }
             
+            // Apply zoom transform to scales
+            const transform = chartZoomStates[svgId].transform;
+            
             const xScale = d3.scaleTime()
                 .domain(xExtent)
                 .range([0, width]);
@@ -432,10 +485,14 @@
                 .domain(yExtent)
                 .range([height, 0]);
             
+            // Create zoomed scales
+            const zoomedXScale = transform.rescaleX(xScale);
+            const zoomedYScale = transform.rescaleY(yScale);
+            
             // Axes
             g.append('g')
                 .attr('transform', `translate(0,${height})`)
-                .call(d3.axisBottom(xScale).tickFormat(d3.timeFormat('%Y-%m')))
+                .call(d3.axisBottom(zoomedXScale).tickFormat(d3.timeFormat('%Y-%m')))
                 .attr('class', 'axis')
                 .selectAll('text')
                 .style('text-anchor', 'end')
@@ -444,7 +501,7 @@
                 .attr('transform', 'rotate(-45)');
             
             g.append('g')
-                .call(d3.axisLeft(yScale))
+                .call(d3.axisLeft(zoomedYScale))
                 .attr('class', 'axis');
             
             // Axis labels
@@ -477,12 +534,12 @@
             dataPoints.enter().append('circle')
                 .attr('class', 'dot')
                 .attr('cx', d => {
-                    const x = xScale(d.date);
+                    const x = zoomedXScale(d.date);
                     if (!isFinite(x)) console.warn('Invalid x position:', d.date, x);
                     return x;
                 })
                 .attr('cy', d => {
-                    const y = yScale(yAccessor(d));
+                    const y = zoomedYScale(yAccessor(d));
                     if (!isFinite(y)) console.warn('Invalid y position:', yAccessor(d), y);
                     return y;
                 })
@@ -507,6 +564,16 @@
                     d3.select(this).attr('r', 4);
                     tooltip.style('opacity', 0);
                 });
+            
+            // Add zoom behavior
+            const zoom = d3.zoom()
+                .scaleExtent([0.1, 10])
+                .on('zoom', function(event) {
+                    chartZoomStates[svgId].transform = event.transform;
+                    updateChartWithZoom(svgId);
+                });
+            
+            svg.call(zoom);
                 
             console.log(`Chart ${svgId} creation completed`);
         }
@@ -573,6 +640,60 @@
             });
             
             console.log('Legend created successfully');
+        }
+        
+        // Zoom functions
+        function updateChartWithZoom(svgId) {
+            console.log(`Updating zoom for ${svgId}`);
+            // Simply recreate the chart with the new zoom state
+            const timeMetric = document.getElementById('timeMetric').value;
+            const memoryMetric = document.getElementById('memoryMetric').value;
+            
+            if (svgId === 'timeChart') {
+                const timeAccessor = d => d[timeMetric];
+                const timeTitle = `${timeMetric.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase())} Over Time`;
+                createChart('timeChart', timeAccessor, timeTitle, 
+                    timeMetric.includes('time') ? 'Time (seconds)' : 'CPU Usage');
+            } else if (svgId === 'memoryChart') {
+                const memoryAccessor = d => d[memoryMetric];
+                const memoryTitle = `${memoryMetric.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase())} Over Time`;
+                createChart('memoryChart', memoryAccessor, memoryTitle, 'Memory (KB)');
+            }
+        }
+        
+        function zoomChart(svgId, scaleFactor) {
+            console.log(`Zooming ${svgId} by factor ${scaleFactor}`);
+            const svg = d3.select(`#${svgId}`);
+            const currentTransform = chartZoomStates[svgId].transform;
+            
+            // Calculate new transform
+            const newTransform = currentTransform.scale(scaleFactor);
+            chartZoomStates[svgId].transform = newTransform;
+            
+            // Update the zoom behavior and chart
+            const zoom = d3.zoom()
+                .scaleExtent([0.1, 10])
+                .on('zoom', function(event) {
+                    chartZoomStates[svgId].transform = event.transform;
+                    updateChartWithZoom(svgId);
+                });
+            
+            svg.call(zoom.transform, newTransform);
+        }
+        
+        function resetZoom(svgId) {
+            console.log(`Resetting zoom for ${svgId}`);
+            chartZoomStates[svgId].transform = d3.zoomIdentity;
+            
+            const svg = d3.select(`#${svgId}`);
+            const zoom = d3.zoom()
+                .scaleExtent([0.1, 10])
+                .on('zoom', function(event) {
+                    chartZoomStates[svgId].transform = event.transform;
+                    updateChartWithZoom(svgId);
+                });
+            
+            svg.call(zoom.transform, d3.zoomIdentity);
         }
         
         // Event listeners
