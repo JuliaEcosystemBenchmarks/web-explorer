@@ -399,10 +399,25 @@
             
             // Scales
             const xExtent = d3.extent(filteredData, d => d.date);
-            const yExtent = d3.extent(filteredData, yAccessor);
+            const yValues = filteredData.map(yAccessor).filter(v => isFinite(v));
+            
+            if (yValues.length === 0) {
+                console.error(`No valid y values for ${svgId}`);
+                return;
+            }
+            
+            const yMin = d3.min(yValues);
+            const yMax = d3.max(yValues);
+            const yMean = d3.mean(yValues);
+            
+            // Set y upper limit to min(slightly above max, 4 * mean)
+            const yUpperLimit = Math.min(yMax * 1.05, yMean * 4);
+            const yExtent = [Math.max(0, yMin * 0.95), yUpperLimit]; // Start from 0 or slightly below min
             
             console.log(`${svgId} - X extent (dates):`, xExtent);
-            console.log(`${svgId} - Y extent:`, yExtent);
+            console.log(`${svgId} - Y values: min=${yMin.toFixed(2)}, max=${yMax.toFixed(2)}, mean=${yMean.toFixed(2)}`);
+            console.log(`${svgId} - Y limit: ${yUpperLimit.toFixed(2)} (max*1.05=${(yMax*1.05).toFixed(2)}, mean*4=${(yMean*4).toFixed(2)})`);
+            console.log(`${svgId} - Final Y extent:`, yExtent);
             
             if (!xExtent[0] || !xExtent[1] || !isFinite(yExtent[0]) || !isFinite(yExtent[1])) {
                 console.error(`Invalid extent for ${svgId}:`, { xExtent, yExtent });
@@ -415,7 +430,6 @@
             
             const yScale = d3.scaleLinear()
                 .domain(yExtent)
-                .nice()
                 .range([height, 0]);
             
             // Axes
