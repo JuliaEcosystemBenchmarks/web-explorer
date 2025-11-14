@@ -222,6 +222,42 @@
             opacity: 0;
             transition: opacity 0.2s;
         }
+        
+        .footer {
+            margin-top: 40px;
+            padding: 30px 20px;
+            background: #f8f9fa;
+            border-top: 1px solid #dee2e6;
+            text-align: center;
+            font-size: 14px;
+            color: #6c757d;
+            line-height: 1.6;
+        }
+        
+        .footer h3 {
+            margin: 0 0 15px 0;
+            font-size: 18px;
+            font-weight: 600;
+            color: #495057;
+        }
+        
+        .footer p {
+            margin: 10px 0;
+            max-width: 800px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+        
+        .footer a {
+            color: #2c3e50;
+            text-decoration: none;
+            font-weight: 500;
+        }
+        
+        .footer a:hover {
+            color: #1a252f;
+            text-decoration: underline;
+        }
     </style>
 </head>
 <body>
@@ -313,6 +349,24 @@
         
         <div class="loading" id="loading">Loading Julia ecosystem benchmark data...</div>
     </div>
+
+    <footer class="footer">
+        <h3>About Julia Ecosystem Benchmarks Explorer</h3>
+        <p>
+            This interactive visualization explores Time-To-First-X (TTFX) performance metrics across the Julia ecosystem, 
+            tracking package load times, precompilation performance, and memory usage across different Julia versions.
+        </p>
+        <p>
+            Computational resources provided by <strong>Krastanov's Lab</strong> at the 
+            <strong>University of Massachusetts Amherst</strong>.
+        </p>
+        <p>
+            Data and benchmarking infrastructure: 
+            <a href="https://github.com/JuliaEcosystemBenchmarks" target="_blank" rel="noopener">
+                Julia Ecosystem Benchmarks GitHub Organization
+            </a>
+        </p>
+    </footer>
 
     <div class="tooltip" id="tooltip"></div>
 
