@@ -189,22 +189,16 @@
         // Global variables
         let data = [];
         let filteredData = [];
+        let juliaVersions = [];
+        let colorScale;
         
         // Chart dimensions and margins
         const margin = { top: 20, right: 30, bottom: 60, left: 80 };
         const width = 600 - margin.left - margin.right;
         const height = 400 - margin.top - margin.bottom;
         
-        // Julia version color scale
-        const juliaVersions = ['1.8.0', '1.8.1', '1.8.2', '1.8.3', '1.8.4', '1.8.5', 
-                              '1.9.0', '1.9.1', '1.9.2', '1.9.3', '1.9.4', 
-                              '1.10.0', '1.10.1', '1.10.2', '1.10.3', '1.10.4', '1.10.5',
-                              '1.11.0', '1.11.1', '1.11.2', '1.11.3', '1.11.4', '1.11.5', '1.11.6',
-                              '1.12.0'];
-        
-        const colorScale = d3.scaleOrdinal()
-            .domain(juliaVersions)
-            .range(d3.schemeCategory10.concat(d3.schemeDark2).concat(d3.schemeSet3));
+        // Special non-numeric version names (add here as needed)
+        const specialVersions = ['nightly', 'dev', 'rc', 'alpha', 'beta'];
         
         // Load and parse CSV data
         async function loadData() {
@@ -238,6 +232,10 @@
                 console.log('Data processed, sample processed data:', data.slice(0, 3));
                 console.log('Total processed rows:', data.length);
                 
+                // Extract and sort Julia versions from the data
+                extractJuliaVersions();
+                setupColorScale();
+                
                 populateSelectors();
                 filteredData = [...data];
                 console.log('Initial filtered data length:', filteredData.length);
@@ -250,6 +248,57 @@
                 console.error('Error loading data:', error);
                 document.getElementById('loading').textContent = 'Error loading data. Please check the data source.';
             }
+        }
+        
+        function extractJuliaVersions() {
+            console.log('Extracting Julia versions from data...');
+            
+            // Get unique versions from the data
+            const uniqueVersions = [...new Set(data.map(d => d.julia_version))];
+            console.log('Found unique versions:', uniqueVersions);
+            
+            // Sort versions: numeric versions first (sorted properly), then special versions
+            juliaVersions = uniqueVersions.sort((a, b) => {
+                const aIsSpecial = specialVersions.some(sv => a.toLowerCase().includes(sv));
+                const bIsSpecial = specialVersions.some(sv => b.toLowerCase().includes(sv));
+                
+                // Both special - alphabetical
+                if (aIsSpecial && bIsSpecial) {
+                    return a.localeCompare(b);
+                }
+                
+                // One special, one not - special goes last
+                if (aIsSpecial && !bIsSpecial) return 1;
+                if (!aIsSpecial && bIsSpecial) return -1;
+                
+                // Both numeric - proper version sorting
+                const aVersion = a.split('.').map(Number);
+                const bVersion = b.split('.').map(Number);
+                for (let i = 0; i < Math.max(aVersion.length, bVersion.length); i++) {
+                    const aPart = aVersion[i] || 0;
+                    const bPart = bVersion[i] || 0;
+                    if (aPart !== bPart) return aPart - bPart;
+                }
+                return 0;
+            });
+            
+            console.log('Sorted Julia versions:', juliaVersions);
+        }
+        
+        function setupColorScale() {
+            console.log('Setting up color scale for', juliaVersions.length, 'versions');
+            
+            // Create a comprehensive color palette
+            const colors = d3.schemeCategory10
+                .concat(d3.schemeDark2)
+                .concat(d3.schemeSet3)
+                .concat(d3.schemeAccent);
+            
+            colorScale = d3.scaleOrdinal()
+                .domain(juliaVersions)
+                .range(colors);
+                
+            console.log('Color scale configured');
         }
         
         function populateSelectors() {
@@ -463,25 +512,14 @@
             const legend = d3.select('#legend');
             legend.selectAll('*').remove();
             
-            if (!data || data.length === 0) {
-                console.log('No data available for legend');
+            if (!data || data.length === 0 || !juliaVersions || juliaVersions.length === 0) {
+                console.log('No data or versions available for legend');
                 return;
             }
             
-            const uniqueVersions = [...new Set(data.map(d => d.julia_version))].sort((a, b) => {
-                const aVersion = a.split('.').map(Number);
-                const bVersion = b.split('.').map(Number);
-                for (let i = 0; i < Math.max(aVersion.length, bVersion.length); i++) {
-                    const aPart = aVersion[i] || 0;
-                    const bPart = bVersion[i] || 0;
-                    if (aPart !== bPart) return aPart - bPart;
-                }
-                return 0;
-            });
+            console.log('Creating legend for versions:', juliaVersions);
             
-            console.log('Unique versions for legend:', uniqueVersions);
-            
-            uniqueVersions.forEach(version => {
+            juliaVersions.forEach(version => {
                 const item = legend.append('div').attr('class', 'legend-item');
                 item.append('div')
                     .attr('class', 'legend-color')
