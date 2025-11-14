@@ -209,7 +209,15 @@
         // Load and parse CSV data
         async function loadData() {
             try {
+                console.log('Starting data load...');
                 const csvData = await d3.csv('https://raw.githubusercontent.com/JuliaEcosystemBenchmarks/julia-ecosystem-benchmarks/refs/heads/jeb_logs/data/Julia-TTFX-Snippets/ttfx_snippets_data.csv');
+                
+                console.log('CSV data loaded, raw data sample:', csvData.slice(0, 3));
+                console.log('Total CSV rows loaded:', csvData.length);
+                
+                if (!csvData || csvData.length === 0) {
+                    throw new Error('No data received from CSV');
+                }
                 
                 data = csvData.map(d => ({
                     package_name: d.package_name,
@@ -227,8 +235,13 @@
                     task_resident: +d.task_resident / 1024 // Convert to KB
                 }));
                 
+                console.log('Data processed, sample processed data:', data.slice(0, 3));
+                console.log('Total processed rows:', data.length);
+                
                 populateSelectors();
                 filteredData = [...data];
+                console.log('Initial filtered data length:', filteredData.length);
+                
                 updateCharts();
                 createLegend();
                 document.getElementById('loading').style.display = 'none';
@@ -240,8 +253,16 @@
         }
         
         function populateSelectors() {
+            console.log('Populating selectors...');
+            console.log('Data available for selectors:', data.length, 'rows');
+            
             const packages = [...new Set(data.map(d => d.package_name))].sort();
             const tasks = [...new Set(data.map(d => d.task_name))].sort();
+            
+            console.log('Unique packages found:', packages.length);
+            console.log('Unique tasks found:', tasks.length);
+            console.log('Sample packages:', packages.slice(0, 5));
+            console.log('Sample tasks:', tasks.slice(0, 5));
             
             const packageSelect = document.getElementById('packageSelect');
             const taskSelect = document.getElementById('taskSelect');
@@ -259,13 +280,19 @@
                 option.textContent = task;
                 taskSelect.appendChild(option);
             });
+            
+            console.log('Selectors populated successfully');
         }
         
         function filterData() {
+            console.log('Filtering data...');
             const selectedPackages = Array.from(document.getElementById('packageSelect').selectedOptions)
                 .map(option => option.value);
             const selectedTasks = Array.from(document.getElementById('taskSelect').selectedOptions)
                 .map(option => option.value);
+            
+            console.log('Selected packages:', selectedPackages);
+            console.log('Selected tasks:', selectedTasks);
             
             filteredData = data.filter(d => {
                 const packageMatch = selectedPackages.length === 0 || 
@@ -279,25 +306,45 @@
                 return packageMatch && taskMatch;
             });
             
+            console.log('Filtered data length:', filteredData.length);
             updateCharts();
         }
         
         function createChart(svgId, yAccessor, title, yLabel) {
+            console.log(`Creating chart for ${svgId}...`);
+            console.log('Filtered data for chart:', filteredData.length, 'points');
+            
             const svg = d3.select(`#${svgId}`);
             svg.selectAll('*').remove();
             
-            if (filteredData.length === 0) return;
+            if (!filteredData || filteredData.length === 0) {
+                console.log(`No data available for ${svgId}, skipping chart creation`);
+                return;
+            }
+            
+            console.log('Sample filtered data for chart:', filteredData.slice(0, 3));
             
             const g = svg.append('g')
                 .attr('transform', `translate(${margin.left},${margin.top})`);
             
             // Scales
+            const xExtent = d3.extent(filteredData, d => d.date);
+            const yExtent = d3.extent(filteredData, yAccessor);
+            
+            console.log(`${svgId} - X extent (dates):`, xExtent);
+            console.log(`${svgId} - Y extent:`, yExtent);
+            
+            if (!xExtent[0] || !xExtent[1] || !isFinite(yExtent[0]) || !isFinite(yExtent[1])) {
+                console.error(`Invalid extent for ${svgId}:`, { xExtent, yExtent });
+                return;
+            }
+            
             const xScale = d3.scaleTime()
-                .domain(d3.extent(filteredData, d => d.date))
+                .domain(xExtent)
                 .range([0, width]);
             
             const yScale = d3.scaleLinear()
-                .domain(d3.extent(filteredData, yAccessor))
+                .domain(yExtent)
                 .nice()
                 .range([height, 0]);
             
@@ -336,12 +383,25 @@
             const tooltip = d3.select('#tooltip');
             
             // Data points
-            g.selectAll('.dot')
-                .data(filteredData)
-                .enter().append('circle')
+            console.log(`Creating ${filteredData.length} data points for ${svgId}`);
+            
+            const dataPoints = g.selectAll('.dot')
+                .data(filteredData);
+                
+            console.log('Data binding completed for', svgId);
+                
+            dataPoints.enter().append('circle')
                 .attr('class', 'dot')
-                .attr('cx', d => xScale(d.date))
-                .attr('cy', d => yScale(yAccessor(d)))
+                .attr('cx', d => {
+                    const x = xScale(d.date);
+                    if (!isFinite(x)) console.warn('Invalid x position:', d.date, x);
+                    return x;
+                })
+                .attr('cy', d => {
+                    const y = yScale(yAccessor(d));
+                    if (!isFinite(y)) console.warn('Invalid y position:', yAccessor(d), y);
+                    return y;
+                })
                 .attr('r', 4)
                 .style('fill', d => colorScale(d.julia_version))
                 .style('opacity', 0.7)
@@ -363,14 +423,27 @@
                     d3.select(this).attr('r', 4);
                     tooltip.style('opacity', 0);
                 });
+                
+            console.log(`Chart ${svgId} creation completed`);
         }
         
         function updateCharts() {
+            console.log('Updating charts...');
             const timeMetric = document.getElementById('timeMetric').value;
             const memoryMetric = document.getElementById('memoryMetric').value;
             
+            console.log('Selected metrics - Time:', timeMetric, 'Memory:', memoryMetric);
+            
             const timeAccessor = d => d[timeMetric];
             const memoryAccessor = d => d[memoryMetric];
+            
+            // Test accessors with sample data
+            if (filteredData.length > 0) {
+                const sampleData = filteredData[0];
+                console.log('Sample data for accessor test:', sampleData);
+                console.log('Time accessor result:', timeAccessor(sampleData));
+                console.log('Memory accessor result:', memoryAccessor(sampleData));
+            }
             
             const timeTitle = `${timeMetric.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase())} Over Time`;
             const memoryTitle = `${memoryMetric.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase())} Over Time`;
@@ -378,14 +451,22 @@
             document.getElementById('timeChartTitle').textContent = timeTitle;
             document.getElementById('memoryChartTitle').textContent = memoryTitle;
             
+            console.log('About to create charts...');
             createChart('timeChart', timeAccessor, timeTitle, 
                 timeMetric.includes('time') ? 'Time (seconds)' : 'CPU Usage');
             createChart('memoryChart', memoryAccessor, memoryTitle, 'Memory (KB)');
+            console.log('Charts update completed');
         }
         
         function createLegend() {
+            console.log('Creating legend...');
             const legend = d3.select('#legend');
             legend.selectAll('*').remove();
+            
+            if (!data || data.length === 0) {
+                console.log('No data available for legend');
+                return;
+            }
             
             const uniqueVersions = [...new Set(data.map(d => d.julia_version))].sort((a, b) => {
                 const aVersion = a.split('.').map(Number);
@@ -398,6 +479,8 @@
                 return 0;
             });
             
+            console.log('Unique versions for legend:', uniqueVersions);
+            
             uniqueVersions.forEach(version => {
                 const item = legend.append('div').attr('class', 'legend-item');
                 item.append('div')
@@ -405,6 +488,8 @@
                     .style('background-color', colorScale(version));
                 item.append('span').text(`Julia ${version}`);
             });
+            
+            console.log('Legend created successfully');
         }
         
         // Event listeners
