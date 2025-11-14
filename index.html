@@ -532,20 +532,37 @@
             console.log('Color scale configured for minor versions:', juliaVersions);
         }
         
-        function populateSelectors() {
-            console.log('Populating selectors...');
-            console.log('Data available for selectors:', data.length, 'rows');
+        function getTasksForPackages(selectedPackages) {
+            console.log('Getting tasks for packages:', selectedPackages);
+            
+            if (!selectedPackages || selectedPackages.length === 0 || selectedPackages.includes('all')) {
+                // If no packages selected or "all" selected, return all tasks
+                return [...new Set(data.map(d => d.task_name))].sort();
+            }
+            
+            // Filter data to selected packages and get their tasks
+            const filteredTasks = data
+                .filter(d => selectedPackages.includes(d.package_name))
+                .map(d => d.task_name);
+                
+            const uniqueTasks = [...new Set(filteredTasks)].sort();
+            console.log(`Found ${uniqueTasks.length} tasks for selected packages:`, uniqueTasks);
+            
+            return uniqueTasks;
+        }
+        
+        function populatePackageSelector() {
+            console.log('Populating package selector...');
             
             const packages = [...new Set(data.map(d => d.package_name))].sort();
-            const tasks = [...new Set(data.map(d => d.task_name))].sort();
-            
             console.log('Unique packages found:', packages.length);
-            console.log('Unique tasks found:', tasks.length);
-            console.log('Sample packages:', packages.slice(0, 5));
-            console.log('Sample tasks:', tasks.slice(0, 5));
             
             const packageSelect = document.getElementById('packageSelect');
-            const taskSelect = document.getElementById('taskSelect');
+            
+            // Clear existing options except "All Packages"
+            while (packageSelect.children.length > 1) {
+                packageSelect.removeChild(packageSelect.lastChild);
+            }
             
             packages.forEach(pkg => {
                 const option = document.createElement('option');
@@ -554,14 +571,118 @@
                 packageSelect.appendChild(option);
             });
             
-            tasks.forEach(task => {
+            console.log('Package selector populated successfully');
+        }
+        
+        function populateTaskSelector(selectedPackages = []) {
+            console.log('Populating task selector...');
+            
+            const taskSelect = document.getElementById('taskSelect');
+            
+            // Store current selections
+            const currentSelections = Array.from(taskSelect.selectedOptions).map(option => option.value);
+            
+            // Clear existing options except "All Tasks"
+            while (taskSelect.children.length > 1) {
+                taskSelect.removeChild(taskSelect.lastChild);
+            }
+            
+            const availableTasks = getTasksForPackages(selectedPackages);
+            console.log('Available tasks for selection:', availableTasks.length);
+            
+            availableTasks.forEach(task => {
                 const option = document.createElement('option');
                 option.value = task;
                 option.textContent = task;
+                
+                // Restore selection if the task is still available
+                if (currentSelections.includes(task)) {
+                    option.selected = true;
+                }
+                
                 taskSelect.appendChild(option);
             });
             
+            console.log('Task selector populated successfully');
+        }
+        
+        function populateSelectors() {
+            console.log('Populating selectors...');
+            console.log('Data available for selectors:', data.length, 'rows');
+            
+            populatePackageSelector();
+            populateTaskSelector(); // Initially populate with all tasks
+            
             console.log('Selectors populated successfully');
+        }
+        
+        function onPackageSelectionChange() {
+            console.log('Package selection changed');
+            const selectedPackages = Array.from(document.getElementById('packageSelect').selectedOptions)
+                .map(option => option.value);
+            
+            console.log('Selected packages:', selectedPackages);
+            
+            // Handle "All Packages" selection logic
+            const packageSelect = document.getElementById('packageSelect');
+            if (selectedPackages.includes('all')) {
+                // If "All Packages" is selected, deselect individual packages
+                Array.from(packageSelect.options).forEach(option => {
+                    if (option.value !== 'all') {
+                        option.selected = false;
+                    }
+                });
+                // Update the selected packages array
+                selectedPackages.length = 0;
+                selectedPackages.push('all');
+            } else if (selectedPackages.length > 1 && selectedPackages.includes('all')) {
+                // If individual packages are selected along with "All", deselect "All"
+                Array.from(packageSelect.options).forEach(option => {
+                    if (option.value === 'all') {
+                        option.selected = false;
+                    }
+                });
+                // Remove "all" from selected packages
+                const allIndex = selectedPackages.indexOf('all');
+                if (allIndex > -1) {
+                    selectedPackages.splice(allIndex, 1);
+                }
+            }
+            
+            // Update task selector based on new package selection
+            populateTaskSelector(selectedPackages);
+            
+            // Filter and update charts
+            filterData();
+        }
+        
+        function onTaskSelectionChange() {
+            console.log('Task selection changed');
+            const selectedTasks = Array.from(document.getElementById('taskSelect').selectedOptions)
+                .map(option => option.value);
+            
+            console.log('Selected tasks:', selectedTasks);
+            
+            // Handle "All Tasks" selection logic
+            const taskSelect = document.getElementById('taskSelect');
+            if (selectedTasks.includes('all')) {
+                // If "All Tasks" is selected, deselect individual tasks
+                Array.from(taskSelect.options).forEach(option => {
+                    if (option.value !== 'all') {
+                        option.selected = false;
+                    }
+                });
+            } else if (selectedTasks.length > 1 && selectedTasks.includes('all')) {
+                // If individual tasks are selected along with "All", deselect "All"
+                Array.from(taskSelect.options).forEach(option => {
+                    if (option.value === 'all') {
+                        option.selected = false;
+                    }
+                });
+            }
+            
+            // Filter and update charts
+            filterData();
         }
         
         function filterData() {
@@ -849,8 +970,8 @@
         }
         
         // Event listeners
-        document.getElementById('packageSelect').addEventListener('change', filterData);
-        document.getElementById('taskSelect').addEventListener('change', filterData);
+        document.getElementById('packageSelect').addEventListener('change', onPackageSelectionChange);
+        document.getElementById('taskSelect').addEventListener('change', onTaskSelectionChange);
         
         // Initialize
         loadData();
