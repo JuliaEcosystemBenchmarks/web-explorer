@@ -171,6 +171,45 @@
             color: #6c757d;
         }
         
+        .spinner-container {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(255, 255, 255, 0.8);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 9999;
+            backdrop-filter: blur(2px);
+        }
+        
+        .spinner {
+            width: 50px;
+            height: 50px;
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #2c3e50;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+        
+        .spinner-text {
+            margin-left: 15px;
+            font-size: 16px;
+            color: #2c3e50;
+            font-weight: 600;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .hidden {
+            display: none !important;
+        }
+        
         .tooltip {
             position: absolute;
             background: rgba(0, 0, 0, 0.8);
@@ -277,6 +316,12 @@
 
     <div class="tooltip" id="tooltip"></div>
 
+    <!-- Spinner overlay -->
+    <div class="spinner-container hidden" id="spinner">
+        <div class="spinner"></div>
+        <div class="spinner-text" id="spinnerText">Loading data...</div>
+    </div>
+
     <script>
         // Global variables
         let data = [];
@@ -306,6 +351,26 @@
         
         // Special non-numeric version names (add here as needed)
         const specialVersions = ['nightly', 'dev', 'rc', 'alpha', 'beta'];
+        
+        // Spinner utility functions
+        function showSpinner(message = 'Loading...') {
+            console.log('Showing spinner:', message);
+            const spinner = document.getElementById('spinner');
+            const spinnerText = document.getElementById('spinnerText');
+            
+            if (spinner && spinnerText) {
+                spinnerText.textContent = message;
+                spinner.classList.remove('hidden');
+            }
+        }
+        
+        function hideSpinner() {
+            console.log('Hiding spinner');
+            const spinner = document.getElementById('spinner');
+            if (spinner) {
+                spinner.classList.add('hidden');
+            }
+        }
         
         // URL anchor management
         function updateURLAnchor() {
@@ -430,7 +495,7 @@
                 
                 console.log('Selections restored from URL successfully');
                 
-                // Filter data and update charts
+                // Filter data and update charts (filterData will handle its own spinner)
                 filterData();
             }, 100);
             
@@ -568,6 +633,8 @@
         async function loadData() {
             try {
                 console.log('Starting data load...');
+                showSpinner('Loading Julia ecosystem benchmark data...');
+                
                 const csvData = await d3.csv('https://raw.githubusercontent.com/JuliaEcosystemBenchmarks/julia-ecosystem-benchmarks/refs/heads/jeb_logs/data/Julia-TTFX-Snippets/ttfx_snippets_data.csv');
                 
                 console.log('CSV data loaded, raw data sample:', csvData.slice(0, 3));
@@ -596,6 +663,8 @@
                 console.log('Data processed, sample processed data:', data.slice(0, 3));
                 console.log('Total processed rows:', data.length);
                 
+                showSpinner('Setting up visualization...');
+                
                 // Extract and sort Julia versions from the data
                 extractJuliaVersions();
                 setupColorScale();
@@ -605,18 +674,21 @@
                 console.log('Initial filtered data length:', filteredData.length);
                 
                 // Try to restore selections from URL anchor
-                restoreSelectionsFromURL();
+                const urlRestored = restoreSelectionsFromURL();
                 
                 // If no URL selections were restored, create charts with default data
-                if (!window.location.hash) {
+                if (!urlRestored) {
+                    showSpinner('Creating charts...');
                     createAllCharts();
                 }
                 
                 createLegend();
                 document.getElementById('loading').style.display = 'none';
+                hideSpinner();
                 
             } catch (error) {
                 console.error('Error loading data:', error);
+                hideSpinner();
                 document.getElementById('loading').textContent = 'Error loading data. Please check the data source.';
             }
         }
@@ -838,6 +910,8 @@
         
         function filterData() {
             console.log('Filtering data...');
+            showSpinner('Filtering data...');
+            
             const selectedPackages = Array.from(document.getElementById('packageSelect').selectedOptions)
                 .map(option => option.value);
             const selectedTasks = Array.from(document.getElementById('taskSelect').selectedOptions)
@@ -846,20 +920,30 @@
             console.log('Selected packages:', selectedPackages);
             console.log('Selected tasks:', selectedTasks);
             
-            filteredData = data.filter(d => {
-                const packageMatch = selectedPackages.length === 0 || 
-                    selectedPackages.includes('all') || 
-                    selectedPackages.includes(d.package_name);
-                    
-                const taskMatch = selectedTasks.length === 0 || 
-                    selectedTasks.includes('all') || 
-                    selectedTasks.includes(d.task_name);
-                    
-                return packageMatch && taskMatch;
-            });
-            
-            console.log('Filtered data length:', filteredData.length);
-            createAllCharts();
+            // Use setTimeout to allow spinner to show before heavy computation
+            setTimeout(() => {
+                filteredData = data.filter(d => {
+                    const packageMatch = selectedPackages.length === 0 || 
+                        selectedPackages.includes('all') || 
+                        selectedPackages.includes(d.package_name);
+                        
+                    const taskMatch = selectedTasks.length === 0 || 
+                        selectedTasks.includes('all') || 
+                        selectedTasks.includes(d.task_name);
+                        
+                    return packageMatch && taskMatch;
+                });
+                
+                console.log('Filtered data length:', filteredData.length);
+                
+                showSpinner('Updating charts...');
+                
+                // Use another timeout to allow spinner message to update
+                setTimeout(() => {
+                    createAllCharts();
+                    hideSpinner();
+                }, 10);
+            }, 10);
         }
         
         function createChart(svgId, yAccessor, title, yLabel) {
