@@ -204,7 +204,7 @@
         
         const colorScale = d3.scaleOrdinal()
             .domain(juliaVersions)
-            .range(d3.schemeCategory20);
+            .range(d3.schemeCategory10.concat(d3.schemeDark2).concat(d3.schemeSet3));
         
         // Load and parse CSV data
         async function loadData() {
