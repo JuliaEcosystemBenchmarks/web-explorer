@@ -483,6 +483,9 @@
                 Julia TTFX Samples
             </a>
         </p>
+        <p>
+            🎨✨🤖💻🔥⚡️🎯🚀 Vibecoded with Claude 🦾🎪🌟💫🎭🎪✨🎨
+        </p>
     </footer>
 
     <div class="tooltip" id="tooltip"></div>
@@ -1386,8 +1389,11 @@
             // Filter to numeric versions only and group by version
             const numericData = filteredData.filter(d => isNumericVersion(d.julia_version));
             
-            if (numericData.length === 0) {
-                console.log(`No numeric version data available for ${svgId}`);
+            // Also get nightly data for recent nightlies box
+            const nightlyData = filteredData.filter(d => d.julia_version.toLowerCase().includes('nightly'));
+            
+            if (numericData.length === 0 && nightlyData.length === 0) {
+                console.log(`No version data available for ${svgId}`);
                 return;
             }
             
@@ -1395,11 +1401,33 @@
             const versionGroups = d3.group(numericData, d => d.julia_version);
             const versions = sortVersions([...versionGroups.keys()]);
             
+            // Add "recent nightlies" if we have nightly data
+            if (nightlyData.length > 0) {
+                versions.push('recent nightlies');
+            }
+            
             console.log(`Creating box plot for ${versions.length} versions:`, versions);
             
             // Calculate box plot stats for each version
             const boxPlotData = versions.map(version => {
-                const versionData = versionGroups.get(version);
+                let versionData;
+                
+                if (version === 'recent nightlies') {
+                    // Get last 10 records from nightly data, sorted by date
+                    const sortedNightlyData = nightlyData
+                        .sort((a, b) => b.date - a.date) // Sort by date descending (newest first)
+                        .slice(0, 10); // Take the 10 most recent
+                    versionData = sortedNightlyData;
+                    console.log(`Using ${versionData.length} recent nightly records for box plot`);
+                } else {
+                    versionData = versionGroups.get(version);
+                }
+                
+                if (!versionData) {
+                    console.warn(`No data found for version: ${version}`);
+                    return { version, stats: null };
+                }
+                
                 const values = versionData.map(yAccessor).filter(v => isFinite(v));
                 const stats = calculateBoxPlotStats(values);
                 return { version, stats };
@@ -1444,19 +1472,38 @@
                 .range([height, 0]);
             
             // Create zoomed scales
-            const zoomedXScale = transform.rescaleX(xScale);
+            // Note: rescaleX doesn't work with band scales, so we'll handle zoom differently
+            // For box plots, we'll only enable Y-axis zooming since X-axis is categorical
+            const zoomedXScale = xScale;
             const zoomedYScale = transform.rescaleY(yScale);
             
             // Axes
-            g.append('g')
+            const xAxis = g.append('g')
                 .attr('transform', `translate(0,${height})`)
                 .call(d3.axisBottom(zoomedXScale))
-                .attr('class', 'axis')
-                .selectAll('text')
+                .attr('class', 'axis');
+            
+            // Handle text labels, with special formatting for "recent nightlies"
+            xAxis.selectAll('text')
                 .style('text-anchor', 'end')
                 .attr('dx', '-.8em')
                 .attr('dy', '.15em')
-                .attr('transform', 'rotate(-45)');
+                .attr('transform', 'rotate(-45)')
+                .each(function(d) {
+                    const text = d3.select(this);
+                    if (d === 'recent nightlies') {
+                        // Split the text into two lines
+                        text.text('');
+                        text.append('tspan')
+                            .attr('x', 0)
+                            .attr('dy', '0em')
+                            .text('recent');
+                        text.append('tspan')
+                            .attr('x', 0)
+                            .attr('dy', '1.2em')
+                            .text('nightlies');
+                    }
+                });
             
             g.append('g')
                 .call(d3.axisLeft(zoomedYScale))
@@ -1572,11 +1619,16 @@
                     });
             });
             
-            // Add zoom behavior
+            // Add zoom behavior (Y-axis only for box plots)
             const zoom = d3.zoom()
                 .scaleExtent([0.1, 10])
                 .on('zoom', function(event) {
-                    chartZoomStates[svgId].transform = event.transform;
+                    // For box plots, only apply Y-axis zoom since X-axis uses band scale
+                    // Store Y-only transform by creating a new transform with X as identity
+                    const originalTransform = event.transform;
+                    chartZoomStates[svgId].transform = d3.zoomIdentity
+                        .translate(0, originalTransform.y)  // Only Y translation
+                        .scale(originalTransform.k);        // Equal scaling (will only affect Y)
                     updateVersionBoxPlotWithZoom(svgId);
                 });
             
@@ -1659,17 +1711,33 @@
             const currentTransform = chartZoomStates[svgId].transform;
             
             // Calculate new transform
-            const newTransform = currentTransform.scale(scaleFactor);
+            let newTransform;
+            if (versionMetrics[svgId]) {
+                // For box plots, only scale Y-axis (preserve X as identity)
+                newTransform = d3.zoomIdentity
+                    .translate(0, currentTransform.y)
+                    .scale(currentTransform.k * scaleFactor);
+            } else {
+                // For scatter plots, scale both axes normally
+                newTransform = currentTransform.scale(scaleFactor);
+            }
+            
             chartZoomStates[svgId].transform = newTransform;
             
             // Update the zoom behavior and chart
             const zoom = d3.zoom()
                 .scaleExtent([0.1, 10])
                 .on('zoom', function(event) {
-                    chartZoomStates[svgId].transform = event.transform;
                     if (versionMetrics[svgId]) {
+                        // Box plot: Y-axis only zoom
+                        const originalTransform = event.transform;
+                        chartZoomStates[svgId].transform = d3.zoomIdentity
+                            .translate(0, originalTransform.y)
+                            .scale(originalTransform.k);
                         updateVersionBoxPlotWithZoom(svgId);
                     } else {
+                        // Scatter plot: normal zoom
+                        chartZoomStates[svgId].transform = event.transform;
                         updateChartWithZoom(svgId);
                     }
                 });
@@ -1685,10 +1753,16 @@
             const zoom = d3.zoom()
                 .scaleExtent([0.1, 10])
                 .on('zoom', function(event) {
-                    chartZoomStates[svgId].transform = event.transform;
                     if (versionMetrics[svgId]) {
+                        // Box plot: Y-axis only zoom
+                        const originalTransform = event.transform;
+                        chartZoomStates[svgId].transform = d3.zoomIdentity
+                            .translate(0, originalTransform.y)
+                            .scale(originalTransform.k);
                         updateVersionBoxPlotWithZoom(svgId);
                     } else {
+                        // Scatter plot: normal zoom
+                        chartZoomStates[svgId].transform = event.transform;
                         updateChartWithZoom(svgId);
                     }
                 });
