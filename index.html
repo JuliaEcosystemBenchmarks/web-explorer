@@ -200,6 +200,22 @@
         // Special non-numeric version names (add here as needed)
         const specialVersions = ['nightly', 'dev', 'rc', 'alpha', 'beta'];
         
+        // Extract minor version for color grouping (e.g., "1.8.0" -> "1.8", "nightly" -> "nightly")
+        function getMinorVersion(version) {
+            // Check if it's a special version
+            const isSpecial = specialVersions.some(sv => version.toLowerCase().includes(sv));
+            if (isSpecial) {
+                return version; // Keep special versions as-is
+            }
+            
+            // For numeric versions, extract major.minor (e.g., "1.8.0" -> "1.8")
+            const parts = version.split('.');
+            if (parts.length >= 2) {
+                return `${parts[0]}.${parts[1]}`;
+            }
+            return version; // Fallback for unexpected formats
+        }
+        
         // Load and parse CSV data
         async function loadData() {
             try {
@@ -253,12 +269,16 @@
         function extractJuliaVersions() {
             console.log('Extracting Julia versions from data...');
             
-            // Get unique versions from the data
-            const uniqueVersions = [...new Set(data.map(d => d.julia_version))];
-            console.log('Found unique versions:', uniqueVersions);
+            // Get unique full versions from the data
+            const uniqueFullVersions = [...new Set(data.map(d => d.julia_version))];
+            console.log('Found unique full versions:', uniqueFullVersions);
             
-            // Sort versions: numeric versions first (sorted properly), then special versions
-            juliaVersions = uniqueVersions.sort((a, b) => {
+            // Get unique minor versions for color grouping
+            const uniqueMinorVersions = [...new Set(uniqueFullVersions.map(getMinorVersion))];
+            console.log('Found unique minor versions:', uniqueMinorVersions);
+            
+            // Sort minor versions: numeric versions first (sorted properly), then special versions
+            juliaVersions = uniqueMinorVersions.sort((a, b) => {
                 const aIsSpecial = specialVersions.some(sv => a.toLowerCase().includes(sv));
                 const bIsSpecial = specialVersions.some(sv => b.toLowerCase().includes(sv));
                 
@@ -282,11 +302,11 @@
                 return 0;
             });
             
-            console.log('Sorted Julia versions:', juliaVersions);
+            console.log('Sorted Julia minor versions for coloring:', juliaVersions);
         }
         
         function setupColorScale() {
-            console.log('Setting up color scale for', juliaVersions.length, 'versions');
+            console.log('Setting up color scale for', juliaVersions.length, 'minor versions');
             
             // Create a comprehensive color palette
             const colors = d3.schemeCategory10
@@ -294,11 +314,12 @@
                 .concat(d3.schemeSet3)
                 .concat(d3.schemeAccent);
             
+            // Map minor versions to colors
             colorScale = d3.scaleOrdinal()
                 .domain(juliaVersions)
                 .range(colors);
                 
-            console.log('Color scale configured');
+            console.log('Color scale configured for minor versions:', juliaVersions);
         }
         
         function populateSelectors() {
@@ -452,7 +473,7 @@
                     return y;
                 })
                 .attr('r', 4)
-                .style('fill', d => colorScale(d.julia_version))
+                .style('fill', d => colorScale(getMinorVersion(d.julia_version)))
                 .style('opacity', 0.7)
                 .style('cursor', 'pointer')
                 .on('mouseover', function(event, d) {
@@ -517,14 +538,24 @@
                 return;
             }
             
-            console.log('Creating legend for versions:', juliaVersions);
+            console.log('Creating legend for minor versions:', juliaVersions);
             
-            juliaVersions.forEach(version => {
+            // Get full versions for each minor version to show the grouping
+            const fullVersions = [...new Set(data.map(d => d.julia_version))];
+            
+            juliaVersions.forEach(minorVersion => {
                 const item = legend.append('div').attr('class', 'legend-item');
                 item.append('div')
                     .attr('class', 'legend-color')
-                    .style('background-color', colorScale(version));
-                item.append('span').text(`Julia ${version}`);
+                    .style('background-color', colorScale(minorVersion));
+                
+                // Show which patch versions are included in this color group
+                const patchVersions = fullVersions.filter(fullVer => getMinorVersion(fullVer) === minorVersion);
+                const versionText = patchVersions.length > 1 
+                    ? `Julia ${minorVersion}.x (${patchVersions.join(', ')})`
+                    : `Julia ${minorVersion}`;
+                
+                item.append('span').text(versionText);
             });
             
             console.log('Legend created successfully');
