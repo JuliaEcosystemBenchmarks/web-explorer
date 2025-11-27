@@ -894,6 +894,7 @@
                 
                 data = csvData.map(d => ({
                     package_name: d.package_name,
+                    package_version: d.package_version,
                     task_name: d.task_name,
                     date: new Date(d.date),
                     julia_version: d.julia_version,
@@ -1328,10 +1329,10 @@
                     // Scale up the marker on hover
                     const shape = getPackageShape(d.package_name);
                     createMarker(d3.select(this), shape, 6);
-                    
+
                     tooltip.style('opacity', 1)
                         .html(`
-                            <strong>${d.package_name}</strong><br/>
+                            <strong>${d.package_name}</strong> ${d.package_version || ''}<br/>
                             Task: ${d.task_name}<br/>
                             Julia: ${d.julia_version}<br/>
                             Date: ${d.date.toDateString()}<br/>
